@@ -37,18 +37,21 @@ class Block:
         return str(self)
 
     def min_end(self):
+        # The minimum position of the end square - the last square (1) of the left/top-most possibility
         minimum = len(self.possibilities[0])
         for possibility in self.possibilities:
             minimum = min(minimum, np.argwhere(possibility == 1).max())
         return minimum
 
     def max_start(self):
+        # The maximum position of the start square - the first square(1) of the right/bottom-most possibility
         maximum = 0
         for possibility in self.possibilities:
             maximum = max(maximum, np.argwhere(possibility == 1).min())
         return maximum
 
     def can_fill_cell(self, cell: Cell):
+        # Can this block fill the cell in any of the possibilities?
         if self.direction == Block.HORIZONTAL and cell.Y != self.index:
             return False
         if self.direction == Block.VERTICAL and cell.X != self.index:
@@ -60,17 +63,20 @@ class Block:
         return False
 
     def get_grid_line(self, grid) -> np.ndarray:
+        # Get the row/column from the grid that this block belongs in - creates a view
         if self.direction == Block.HORIZONTAL:
             return grid[self.index, :]
         else:
             return grid[:, self.index]
 
     def clear(self):
+        # Reset this block to initial conditions
         self.possibilities.clear()
         self.solution = None
         self.solved = False
 
     def generate(self, grid: np.ndarray):
+        # Generate all possibilities - places the block in the row/column and shifts to the right/bottom by 1 for each next possibility
         line = self.get_grid_line(grid)
         for i in range(len(line) - self.length + 1):
             possibility = [0]*i + [1]*self.length + [0] * (len(line) - self.length - i)
@@ -81,6 +87,8 @@ class Block:
             self.possibilities.append(np.array(possibility, dtype=np.uint8))
 
     def reduce(self, grid):
+        # Throw out all the possibilities that are not possible with the current state of the grid and neighboring blocks.
+
         # No need to process this block if it's already solved
         if self.solved:
             return False
@@ -136,6 +144,8 @@ class Block:
                             self.possibilities.pop(i)
                             progress = True
 
+        # Fill in cells in the grid that are certain - squares that overlap in all possibilities,
+        #  or if only one possibility is left, the whole thing will be copied over to the grid (including surrounding X (2) cells)
         equal_cells = np.all(self.possibilities == self.possibilities[0], axis=0)   # Get cells that are the same in all possibilities
         equal_cells = np.logical_and(equal_cells, self.possibilities[0] > 0)        # Filter out empty cells
         if np.any(equal_cells):
@@ -155,7 +165,7 @@ class Grid(np.ndarray):
         return arr.view(Grid)
 
     def __str__(self):
-        # ☒□■
+        # Display as a grid of ☒□■
         chars = {0: '□', 1: '■', 2: '☒'}
         # rows = []
         if len(self.shape) == 2:
@@ -182,6 +192,7 @@ class Nonogram:
         self.create_blocks(self.row_hints, self.col_hints)
 
     def create_blocks(self, rows, cols):
+        # Generate all the blocks for the rows and columns
         for row, hints in enumerate(rows):
             previous: Block = None
             self.rows.append([])
@@ -246,11 +257,13 @@ class Nonogram:
         return progress
 
     def reduce_loop(self):
+        # Call self.reduce() until no progress is made anymore
         while True:
             if not self.reduce():
                 break
 
     def solve(self):
+        # Solve the puzzle
         self.clear()
         self.generate()
         self.reduce_loop()
